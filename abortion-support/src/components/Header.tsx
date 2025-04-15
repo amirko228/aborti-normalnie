@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Container, useTheme, useMediaQuery, IconButton, Drawer, List, ListItem, ListItemText } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, Container, useTheme, useMediaQuery, IconButton, Drawer, List, ListItem, Stack } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import PhoneIcon from '@mui/icons-material/Phone';
 import { styled } from '@mui/material/styles';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -54,15 +55,29 @@ const NavButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const MobileNavButton = styled(Button)(({ theme }) => ({
-  color: theme.palette.primary.main,
-  fontWeight: 600,
-  fontSize: '1.1rem',
-  padding: '12px 24px',
-  width: '100%',
-  justifyContent: 'flex-start',
-  '&:hover': {
-    background: 'rgba(255, 107, 107, 0.1)',
+const PhoneNumber = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-end',
+  color: 'white',
+  marginRight: theme.spacing(4),
+  '& .phone': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    fontSize: '1.2rem',
+    fontWeight: 700,
+    textDecoration: 'none',
+    color: 'white',
+    transition: 'all 0.3s ease',
+    '&:hover': {
+      transform: 'scale(1.05)',
+    },
+  },
+  '& .slogan': {
+    fontSize: '0.8rem',
+    opacity: 0.9,
+    fontStyle: 'italic',
   },
 }));
 
@@ -76,49 +91,67 @@ const Header: React.FC = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const drawer = (
     <Box sx={{ width: '100%', p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ color: theme.palette.primary.main }}>
+          8 800 555 35 35
+        </Typography>
         <IconButton onClick={handleDrawerToggle}>
           <CloseIcon />
         </IconButton>
       </Box>
       <List>
         <ListItem>
-          <MobileNavButton
-            LinkComponent={Link}
-            href="/"
-            onClick={handleDrawerToggle}
+          <Button
+            fullWidth
+            onClick={() => {
+              scrollToSection('main');
+              handleDrawerToggle();
+            }}
           >
             Главная
-          </MobileNavButton>
+          </Button>
         </ListItem>
         <ListItem>
-          <MobileNavButton
-            LinkComponent={Link}
-            href="/about"
-            onClick={handleDrawerToggle}
+          <Button
+            fullWidth
+            onClick={() => {
+              scrollToSection('about');
+              handleDrawerToggle();
+            }}
           >
             О нас
-          </MobileNavButton>
+          </Button>
         </ListItem>
         <ListItem>
-          <MobileNavButton
-            LinkComponent={Link}
-            href="/resources"
-            onClick={handleDrawerToggle}
+          <Button
+            fullWidth
+            onClick={() => {
+              scrollToSection('resources');
+              handleDrawerToggle();
+            }}
           >
             Ресурсы
-          </MobileNavButton>
+          </Button>
         </ListItem>
         <ListItem>
-          <MobileNavButton
-            LinkComponent={Link}
-            href="/contact"
-            onClick={handleDrawerToggle}
+          <Button
+            fullWidth
+            onClick={() => {
+              scrollToSection('contact');
+              handleDrawerToggle();
+            }}
           >
             Контакты
-          </MobileNavButton>
+          </Button>
         </ListItem>
       </List>
     </Box>
@@ -127,8 +160,8 @@ const Header: React.FC = () => {
   return (
     <StyledAppBar position="sticky">
       <Container maxWidth="lg">
-        <Toolbar disableGutters>
-          <Box component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none' }}>
+        <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
+          <Box component={Link} to="/" sx={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <Logo>
               <FavoriteIcon sx={{ color: 'white', fontSize: 36 }} />
               <Typography
@@ -147,44 +180,29 @@ const Header: React.FC = () => {
           </Box>
 
           {!isMobile && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <NavButton
-                LinkComponent={Link}
-                href="/"
-                sx={{
-                  background: location.pathname === '/' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                }}
-              >
-                Главная
-              </NavButton>
-              <NavButton
-                LinkComponent={Link}
-                href="/about"
-                sx={{
-                  background: location.pathname === '/about' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                }}
-              >
-                О нас
-              </NavButton>
-              <NavButton
-                LinkComponent={Link}
-                href="/resources"
-                sx={{
-                  background: location.pathname === '/resources' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                }}
-              >
-                Ресурсы
-              </NavButton>
-              <NavButton
-                LinkComponent={Link}
-                href="/contact"
-                sx={{
-                  background: location.pathname === '/contact' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                }}
-              >
-                Контакты
-              </NavButton>
-            </Box>
+            <Stack direction="row" spacing={4} alignItems="center">
+              <PhoneNumber>
+                <a href="tel:88005553535" className="phone">
+                  <PhoneIcon />
+                  8 800 555 35 35
+                </a>
+                <span className="slogan">Лучше позвонить чем у кого-то занимать</span>
+              </PhoneNumber>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <NavButton onClick={() => scrollToSection('main')}>
+                  Главная
+                </NavButton>
+                <NavButton onClick={() => scrollToSection('about')}>
+                  О нас
+                </NavButton>
+                <NavButton onClick={() => scrollToSection('resources')}>
+                  Ресурсы
+                </NavButton>
+                <NavButton onClick={() => scrollToSection('contact')}>
+                  Контакты
+                </NavButton>
+              </Box>
+            </Stack>
           )}
 
           {isMobile && (
