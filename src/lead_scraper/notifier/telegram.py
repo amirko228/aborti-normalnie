@@ -13,6 +13,9 @@ from loguru import logger
 from ..config import settings
 from ..models import Lead
 
+# Telegram режет сообщения длиннее 4096 символов. Берём с запасом.
+_TG_MSG_LIMIT = 3800
+
 
 class TelegramNotifier:
     def __init__(self, token: str | None = None, chat_id: str | None = None) -> None:
@@ -44,9 +47,12 @@ class TelegramNotifier:
         await self._safe_send(lead.telegram_message(), disable_web_page_preview=True)
 
     async def send_leads(self, leads: list[Lead]) -> None:
-        for lead in leads:
-            await self.send_lead(lead)
-            await asyncio.sleep(0.5)  # уважаем rate-limit Telegram
+        """Все лиды одним сообщением (или несколькими частями, если не влезает)."""
+        if not leads:
+            return
+        for chunk in _build_chunks(leads):
+            await self._safe_send(chunk, disable_web_page_preview=True)
+            await asyncio.sleep(0.5)
 
     async def _safe_send(self, text: str, *, disable_web_page_preview: bool = False) -> None:
         try:
@@ -63,3 +69,66 @@ class TelegramNotifier:
                 text=text,
                 disable_web_page_preview=disable_web_page_preview,
             )
+
+
+def _format_lead_compact(idx: int, lead: Lead) -> str:
+    """Одна-две строки на лид: название-ссылка, рубрика, рейтинг, контакты."""
+    p = lead.place
+    name = _esc(p.name)
+    title = (
+        f'<b>{idx}. <a href="{p.dgis_url}">{name}</a></b>'
+        if p.dgis_url
+        else f"<b>{idx}. {name}</b>"
+    )
+    parts = [title]
+
+    meta_bits: list[str] = []
+    if p.rating is not None:
+        meta_bits.append(f"⭐ {p.rating} ({p.reviews_count or 0})")
+    if p.rubrics:
+        meta_bits.append(_esc(p.rubrics[0]))
+    if p.address:
+        meta_bits.append(_esc(p.address))
+    if meta_bits:
+        parts.append("   " + " · ".join(meta_bits))
+
+    contact_bits: list[str] = []
+    if p.phones:
+        contact_bits.append("📞 " + _esc(p.phones[0]))
+    if p.primary_instagram:
+        contact_bits.append("📸 " + _esc(p.primary_instagram))
+    if p.emails:
+        contact_bits.append("✉️ " + _esc(p.emails[0]))
+    if contact_bits:
+        parts.append("   " + " | ".join(contact_bits))
+    elif lead.contacts_unknown:
+        parts.append("   ⚠️ контакты в карточке 2GIS")
+
+    return "\n".join(parts)
+
+
+def _build_chunks(leads: list[Lead]) -> list[str]:
+    """Склеиваем все лиды в одно сообщение (или несколько, если >4096 символов)."""
+    header = (
+        f"✅ <b>Лиды 2GIS</b> — найдено {len(leads)} мест "
+        f"без сайта, отсортировано по score\n"
+    )
+    chunks: list[str] = []
+    buf = [header]
+    size = len(header)
+    for i, lead in enumerate(leads, 1):
+        block = "\n" + _format_lead_compact(i, lead) + "\n"
+        if size + len(block) > _TG_MSG_LIMIT and len(buf) > 1:
+            chunks.append("".join(buf))
+            buf = [f"<b>… продолжение ({len(chunks) + 1})</b>\n", block]
+            size = len(buf[0]) + len(block)
+        else:
+            buf.append(block)
+            size += len(block)
+    if buf:
+        chunks.append("".join(buf))
+    return chunks
+
+
+def _esc(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
