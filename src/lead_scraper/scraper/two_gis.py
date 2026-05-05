@@ -25,7 +25,9 @@ from tenacity import (
 from ..config import settings
 from ..models import Place, SocialKind
 
-# Поля, которые просим у API. Чем больше — тем дороже запрос, но нам нужны контакты.
+# Минимальный набор полей, который точно отдаётся демо-ключу.
+# Жирные поля (items.flags, items.org, items.external_content, items.locale)
+# на free-плане ломают поиск с 404 — не запрашиваем.
 _FIELDS = ",".join(
     [
         "items.point",
@@ -33,10 +35,6 @@ _FIELDS = ",".join(
         "items.contact_groups",
         "items.rubrics",
         "items.reviews",
-        "items.external_content",
-        "items.locale",
-        "items.flags",
-        "items.org",
     ]
 )
 
@@ -136,10 +134,8 @@ class TwoGisClient:
         query: str,
         city: str,
         max_results: int = 200,
-        radius_m: int = 25_000,
     ) -> AsyncIterator[Place]:
-        """Поиск компаний по тексту в радиусе вокруг центра города."""
-        point = await self.resolve_city(city)
+        """Поиск компаний: текстовый запрос '{query} {city}' с пагинацией."""
         page = 1
         seen = 0
         while seen < max_results:
@@ -149,9 +145,6 @@ class TwoGisClient:
                 "page_size": min(_PAGE_SIZE, max_results - seen),
                 "fields": _FIELDS,
             }
-            if point is not None:
-                params["location"] = f"{point[0]},{point[1]}"
-                params["sort_point"] = f"{point[0]},{point[1]}"
             data = await self._get("/items", params)
             items = data.get("result", {}).get("items", []) or []
             logger.debug("2GIS: q='{}' → {} элементов", params["q"], len(items))
