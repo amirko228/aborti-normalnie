@@ -105,7 +105,10 @@ def debug_search(
                 "q": f"{query} {city}",
                 "page_size": 3,
                 "key": key,
-                "fields": "items.point,items.adm_div,items.contact_groups,items.rubrics,items.reviews",
+                "fields": (
+                    "items.point,items.adm_div,items.contact_groups,"
+                    "items.rubrics,items.reviews"
+                ),
             },
         ),
     ]
