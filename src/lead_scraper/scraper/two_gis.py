@@ -88,10 +88,15 @@ class TwoGisClient:
                 resp = await self._client.get(path, params=params)
                 if resp.status_code == 429:
                     raise httpx.HTTPStatusError("rate-limited", request=resp.request, response=resp)
+                # 404 у 2GIS = "ничего не нашли" — это нормальный пустой результат
+                if resp.status_code == 404:
+                    return {"result": {"items": [], "total": 0}, "meta": {"code": 404}}
                 resp.raise_for_status()
                 data: dict[str, Any] = resp.json()
                 meta = data.get("meta", {})
                 code = meta.get("code")
+                if code == 404:
+                    return {"result": {"items": [], "total": 0}, "meta": meta}
                 if code and code >= 400:
                     raise TwoGisError(f"2GIS error {code}: {meta.get('error', {})}")
                 return data
@@ -146,8 +151,12 @@ class TwoGisClient:
             async with sem:
                 logger.info("ищу '{}' в {}", rubric, city)
                 out: list[Place] = []
-                async for p in self.search(rubric, city, max_per_rubric):
-                    out.append(p)
+                try:
+                    async for p in self.search(rubric, city, max_per_rubric):
+                        out.append(p)
+                except TwoGisError as e:
+                    logger.warning("'{}' пропущено: {}", rubric, e)
+                    return out
                 logger.info("'{}' → {} мест", rubric, len(out))
                 return out
 
