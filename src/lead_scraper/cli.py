@@ -137,6 +137,44 @@ def debug_search(
                 console.print(f"  • {it.get('name')} — {it.get('address_name', '—')} "
                               f"| ключи: {list(it.keys())}")
 
+    # доп. проверка: тянем первый найденный id через byid с contact_groups
+    console.rule("[cyan]byid lookup для первого id[/cyan]")
+    first_id = None
+    for _name, params in strategies:
+        try:
+            r = httpx.get("https://catalog.api.2gis.com/3.0/items", params=params, timeout=20)
+            it = ((r.json().get("result") or {}).get("items") or [None])[0]
+            if it and it.get("id"):
+                first_id = it["id"]
+                break
+        except Exception:
+            continue
+    if first_id:
+        byid_params = {
+            "id": first_id,
+            "key": key,
+            "fields": (
+                "items.contact_groups,items.point,items.rubrics,"
+                "items.reviews,items.adm_div,items.external_content,items.org"
+            ),
+        }
+        r = httpx.get(
+            "https://catalog.api.2gis.com/3.0/items/byid",
+            params=byid_params,
+            timeout=20,
+        )
+        console.print(f"[dim]Status:[/dim] {r.status_code}")
+        try:
+            data = r.json()
+            console.print(f"[dim]Meta:[/dim] {json.dumps(data.get('meta'), ensure_ascii=False)}")
+            items = (data.get("result") or {}).get("items", []) or []
+            if items:
+                console.print(json.dumps(items[0], ensure_ascii=False, indent=2)[:2500])
+        except Exception:
+            console.print(r.text[:1500])
+    else:
+        console.print("[red]не нашли ни одного id для byid-проверки[/red]")
+
 
 @app.command()
 def check_config() -> None:
