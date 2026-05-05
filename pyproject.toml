@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lead-scraper-2gis"
+version = "0.1.0"
+description = "Async-парсер 2GIS: ищет малый бизнес без сайта, проверяет соцсети и шлёт лиды в Telegram"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "amirko228" }]
+dependencies = [
+    "httpx[http2]>=0.27.2",
+    "pydantic>=2.9.2",
+    "pydantic-settings>=2.6.1",
+    "aiogram>=3.13.1",
+    "typer>=0.13.0",
+    "rich>=13.9.4",
+    "loguru>=0.7.2",
+    "tenacity>=9.0.0",
+    "selectolax>=0.3.27",
+    "python-dotenv>=1.0.1",
+    "tldextract>=5.1.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7.4",
+    "mypy>=1.13.0",
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+lead-scraper = "lead_scraper.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lead_scraper"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+# RUF001/002/003 — флажат кириллицу в строках/комментариях (много ложных срабатываний на русском)
+# E741 — `l` как имя переменной читается ок, мы пишем краткие генераторы
+ignore = ["RUF001", "RUF002", "RUF003", "E741"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]

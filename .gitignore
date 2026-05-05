@@ -1,0 +1,30 @@
+# venv / build
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# секреты и данные
+.env
+.env.local
+data/seen.json
+data/leads.jsonl
+data/*.csv
+
+# тесты / mypy / ruff
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
