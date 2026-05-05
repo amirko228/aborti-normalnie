@@ -40,7 +40,7 @@ _FIELDS = ",".join(
     ]
 )
 
-_PAGE_SIZE = 50  # максимум, который разрешает API
+_PAGE_SIZE = 10  # верхняя граница для демо-ключей; платные тарифы тянут до 50, но 10 безопасно
 
 
 class TwoGisError(RuntimeError):
