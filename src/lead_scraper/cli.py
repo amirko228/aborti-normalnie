@@ -72,6 +72,53 @@ def scrape(
 
 
 @app.command()
+def debug_search(
+    query: str = typer.Argument(..., help="Что искать, например 'кафе'"),
+    city: str = typer.Option(settings.default_city, "--city", "-c"),
+) -> None:
+    """Сырой запрос в 2GIS — печатает первый ответ как есть. Для отладки."""
+    import json
+
+    import httpx
+
+    _setup_logging(False)
+    key = settings.dgis_api_key.get_secret_value()
+    if not key:
+        console.print("[red]DGIS_API_KEY не задан[/red]")
+        raise typer.Exit(1)
+
+    # пробуем три стратегии и печатаем результат каждой
+    strategies = [
+        ("text-only", {"q": f"{query} {city}", "page_size": 5, "key": key}),
+        ("text-only no-fields", {"q": f"{query} {city}", "page_size": 5, "key": key,
+                                  "fields": "items.point,items.contact_groups,items.rubrics"}),
+        ("only city in q", {"q": query, "page_size": 5, "key": key}),
+    ]
+    for name, params in strategies:
+        console.rule(f"[cyan]{name}[/cyan]")
+        url = "https://catalog.api.2gis.com/3.0/items"
+        try:
+            r = httpx.get(url, params=params, timeout=20)
+        except Exception as e:
+            console.print(f"[red]ERR {e}[/red]")
+            continue
+        console.print(f"[dim]URL:[/dim] {r.url}")
+        console.print(f"[dim]Status:[/dim] {r.status_code}")
+        try:
+            data = r.json()
+        except Exception:
+            console.print(r.text[:1000])
+            continue
+        console.print(f"[dim]Meta:[/dim] {json.dumps(data.get('meta'), ensure_ascii=False)}")
+        items = (data.get("result") or {}).get("items", []) or []
+        console.print(f"[green]Найдено items:[/green] {len(items)}")
+        for it in items[:3]:
+            console.print(
+                f"  • {it.get('name')} — {it.get('address_name', '—')}"
+            )
+
+
+@app.command()
 def check_config() -> None:
     """Показать текущую конфигурацию (без секретов)."""
     _setup_logging(False)

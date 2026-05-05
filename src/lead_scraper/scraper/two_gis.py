@@ -144,21 +144,17 @@ class TwoGisClient:
         seen = 0
         while seen < max_results:
             params: dict[str, Any] = {
-                "q": query,
+                "q": f"{query} {city}",
                 "page": page,
                 "page_size": min(_PAGE_SIZE, max_results - seen),
                 "fields": _FIELDS,
-                "type": "branch",
-                "locale": "ru_RU",
             }
             if point is not None:
-                params["point"] = f"{point[0]},{point[1]}"
-                params["radius"] = radius_m
-            else:
-                # fallback: впихиваем город прямо в текстовый запрос
-                params["q"] = f"{query} {city}"
+                params["location"] = f"{point[0]},{point[1]}"
+                params["sort_point"] = f"{point[0]},{point[1]}"
             data = await self._get("/items", params)
             items = data.get("result", {}).get("items", []) or []
+            logger.debug("2GIS: q='{}' → {} элементов", params["q"], len(items))
             if not items:
                 return
             for item in items:
