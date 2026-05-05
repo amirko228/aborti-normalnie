@@ -115,9 +115,21 @@ class TwoGisClient:
                 resp = await self._client.get(path, params=params)
                 if resp.status_code == 429:
                     raise httpx.HTTPStatusError("rate-limited", request=resp.request, response=resp)
-                # 404 у 2GIS = "ничего не нашли" — это нормальный пустой результат
+                # 404 у 2GIS = "ничего не нашли" — нормальный пустой результат
                 if resp.status_code == 404:
                     return {"result": {"items": [], "total": 0}, "meta": {"code": 404}}
+                # 400 paramIsOutsideSet на page — у демо-ключа лимит 5 страниц
+                if resp.status_code == 400:
+                    try:
+                        body = resp.json()
+                    except ValueError:
+                        body = {}
+                    err = (body.get("meta") or {}).get("error") or {}
+                    if err.get("type") == "paramIsOutsideSet":
+                        return {
+                            "result": {"items": [], "total": 0},
+                            "meta": {"code": 400, "limit_reached": True},
+                        }
                 resp.raise_for_status()
                 data: dict[str, Any] = resp.json()
                 meta = data.get("meta", {})
@@ -187,9 +199,17 @@ class TwoGisClient:
 
         results = await asyncio.gather(*[_one(r) for r in rubrics])
         merged: dict[str, Place] = {}
+        seen_keys: set[str] = set()
         for batch in results:
             for p in batch:
-                merged.setdefault(p.id, p)
+                if p.id in merged:
+                    continue
+                # доп. дедуп по name+address — ловим клонов одной сети
+                key = f"{p.name.lower().strip()}|{(p.address or '').lower().strip()}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                merged[p.id] = p
         return list(merged.values())
 
 
