@@ -67,6 +67,9 @@ class TwoGisClient:
             headers={"User-Agent": "lead-scraper-2gis/0.1"},
         )
 
+        # кеш координат городов: {"Бишкек": (74.59, 42.87)}
+        self._city_points: dict[str, tuple[float, float]] = {}
+
     async def __aenter__(self) -> TwoGisClient:
         return self
 
@@ -75,6 +78,32 @@ class TwoGisClient:
 
     async def close(self) -> None:
         await self._client.aclose()
+
+    async def resolve_city(self, city: str) -> tuple[float, float] | None:
+        """Координаты центра города по названию. Кешируется на инстансе."""
+        if city in self._city_points:
+            return self._city_points[city]
+        params = {
+            "q": city,
+            "type": "adm_div.city",
+            "fields": "items.point",
+            "page_size": 1,
+        }
+        try:
+            data = await self._get("/items", params)
+        except TwoGisError as e:
+            logger.warning("не удалось разрешить город {}: {}", city, e)
+            return None
+        items = data.get("result", {}).get("items", []) or []
+        if not items:
+            return None
+        pt = items[0].get("point") or {}
+        if "lon" in pt and "lat" in pt:
+            point = (float(pt["lon"]), float(pt["lat"]))
+            self._city_points[city] = point
+            logger.info("город {} → координаты {}, {}", city, point[0], point[1])
+            return point
+        return None
 
     async def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         params = {**params, "key": self._api_key}
@@ -107,20 +136,27 @@ class TwoGisClient:
         query: str,
         city: str,
         max_results: int = 200,
+        radius_m: int = 25_000,
     ) -> AsyncIterator[Place]:
-        """Поиск компаний по тексту в указанном городе с пагинацией."""
+        """Поиск компаний по тексту в радиусе вокруг центра города."""
+        point = await self.resolve_city(city)
         page = 1
         seen = 0
         while seen < max_results:
-            params = {
+            params: dict[str, Any] = {
                 "q": query,
-                "city": city,
                 "page": page,
                 "page_size": min(_PAGE_SIZE, max_results - seen),
                 "fields": _FIELDS,
                 "type": "branch",
                 "locale": "ru_RU",
             }
+            if point is not None:
+                params["point"] = f"{point[0]},{point[1]}"
+                params["radius"] = radius_m
+            else:
+                # fallback: впихиваем город прямо в текстовый запрос
+                params["q"] = f"{query} {city}"
             data = await self._get("/items", params)
             items = data.get("result", {}).get("items", []) or []
             if not items:
