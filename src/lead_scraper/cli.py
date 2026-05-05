@@ -87,12 +87,27 @@ def debug_search(
         console.print("[red]DGIS_API_KEY не задан[/red]")
         raise typer.Exit(1)
 
-    # пробуем три стратегии и печатаем результат каждой
+    # пробуем разные стратегии и печатаем результат каждой
     strategies = [
-        ("text-only", {"q": f"{query} {city}", "page_size": 5, "key": key}),
-        ("text-only no-fields", {"q": f"{query} {city}", "page_size": 5, "key": key,
-                                  "fields": "items.point,items.contact_groups,items.rubrics"}),
-        ("only city in q", {"q": query, "page_size": 5, "key": key}),
+        ("default (no fields)", {"q": f"{query} {city}", "page_size": 3, "key": key}),
+        (
+            "with contact_groups only",
+            {
+                "q": f"{query} {city}",
+                "page_size": 3,
+                "key": key,
+                "fields": "items.contact_groups",
+            },
+        ),
+        (
+            "current production fields",
+            {
+                "q": f"{query} {city}",
+                "page_size": 3,
+                "key": key,
+                "fields": "items.point,items.adm_div,items.contact_groups,items.rubrics,items.reviews",
+            },
+        ),
     ]
     for name, params in strategies:
         console.rule(f"[cyan]{name}[/cyan]")
@@ -112,10 +127,12 @@ def debug_search(
         console.print(f"[dim]Meta:[/dim] {json.dumps(data.get('meta'), ensure_ascii=False)}")
         items = (data.get("result") or {}).get("items", []) or []
         console.print(f"[green]Найдено items:[/green] {len(items)}")
-        for it in items[:3]:
-            console.print(
-                f"  • {it.get('name')} — {it.get('address_name', '—')}"
-            )
+        if items:
+            console.print("[yellow]--- сырой первый item ---[/yellow]")
+            console.print(json.dumps(items[0], ensure_ascii=False, indent=2))
+            for it in items[1:]:
+                console.print(f"  • {it.get('name')} — {it.get('address_name', '—')} "
+                              f"| ключи: {list(it.keys())}")
 
 
 @app.command()
