@@ -93,6 +93,7 @@ class Lead(BaseModel):
     instagram_has_website_in_bio: bool | None = None
     instagram_followers: int | None = None
     score: float = 0.0
+    contacts_unknown: bool = False  # API не отдал contact_groups (демо-ключ)
     discovered_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def telegram_message(self) -> str:
@@ -113,6 +114,11 @@ class Lead(BaseModel):
             lines.append(f"📸 {_escape(ig)}")
         if p.dgis_url:
             lines.append(f"🗺 <a href=\"{p.dgis_url}\">Открыть в 2GIS</a>")
+        if self.contacts_unknown:
+            lines.append(
+                "⚠️ <i>Контакты не пришли из API (демо-ключ). "
+                "Открой карточку 2GIS — там есть телефон/сайт/соцсети.</i>"
+            )
         lines.append("")
         lines.append("🎯 <b>Почему это лид:</b>")
         for r in self.reasons:

@@ -65,6 +65,33 @@ def has_any_contact(place: Place) -> bool:
     return bool(place.phones or place.emails or place.socials or place.websites)
 
 
+def _activity_reasons(place: Place) -> list[str]:
+    out: list[str] = []
+    if place.reviews_count and place.reviews_count >= 200:
+        out.append(f"много отзывов в 2GIS ({place.reviews_count})")
+    elif place.reviews_count and place.reviews_count >= 30:
+        out.append(f"заметная активность ({place.reviews_count} отзывов)")
+    if place.rating and place.rating >= 4.0:
+        out.append(f"рейтинг {place.rating}")
+    return out
+
+
+def _activity_score(place: Place) -> float:
+    score = 0.0
+    if place.reviews_count:
+        if place.reviews_count >= 500:
+            score += 2.5
+        elif place.reviews_count >= 200:
+            score += 2.0
+        elif place.reviews_count >= 50:
+            score += 1.0
+        elif place.reviews_count >= 30:
+            score += 0.5
+    if place.rating and place.rating >= 4.3:
+        score += 0.5
+    return score
+
+
 async def evaluate_place(
     place: Place,
     ig_checker: InstagramChecker | None,
@@ -75,8 +102,27 @@ async def evaluate_place(
     if not is_target_business(place):
         return Lead(place=place, verdict=LeadVerdict.NOT_TARGET, reasons=["рубрика не целевая"])
 
+    # Если у API-ключа нет прав на contact_groups (демо), всё равно отдаём
+    # активные места как кандидатов — пользователь дочекаит контакты руками
+    # по ссылке на карточку 2GIS.
     if not has_any_contact(place):
-        return Lead(place=place, verdict=LeadVerdict.NO_CONTACT, reasons=["нет ни одного контакта"])
+        if place.reviews_count and place.reviews_count >= 30:
+            score = _activity_score(place)
+            return Lead(
+                place=place,
+                verdict=LeadVerdict.GOOD_LEAD,
+                reasons=[
+                    "контакты не пришли из API — открой карточку 2GIS",
+                    *_activity_reasons(place),
+                ],
+                contacts_unknown=True,
+                score=round(score, 2),
+            )
+        return Lead(
+            place=place,
+            verdict=LeadVerdict.NO_CONTACT,
+            reasons=["контактов нет, активность слабая"],
+        )
 
     if place.has_website:
         return Lead(
